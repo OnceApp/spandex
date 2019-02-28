@@ -54,7 +54,7 @@ defmodule Spandex.Tracer do
                    services: {:keyword, :atom},
                    strategy: :atom,
                    sender: :atom,
-                   trace_key: :atom
+                   trace_key: :any
                  ],
                  required: [:adapter, :service],
                  defaults: [
@@ -268,7 +268,7 @@ defmodule Spandex.Tracer do
         |> Kernel.||([])
         |> Keyword.merge(opts || [])
         |> Optimal.validate!(@opts)
-        |> Keyword.put(:trace_key, __MODULE__)
+        |> Keyword.put_new(:trace_key, __MODULE__)
       end
 
       defp config(opts, otp_app) do
