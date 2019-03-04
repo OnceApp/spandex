@@ -294,7 +294,7 @@ defmodule Spandex.Tracer do
 
           opts
           |> Optimal.validate!(schema)
-          |> Keyword.put(:trace_key, __MODULE__)
+          |> Keyword.put_new(:trace_key, __MODULE__)
           |> Keyword.put(:strategy, env[:strategy] || Spandex.Strategy.Pdict)
           |> Keyword.put(:adapter, env[:adapter])
         end
