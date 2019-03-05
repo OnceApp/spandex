@@ -36,7 +36,7 @@ defmodule Spandex do
   def start_trace(name, opts) do
     strategy = opts[:strategy]
 
-    if strategy.trace_active?(opts[:trace_key]) do
+    if strategy.trace_active?(get_trace_key()) do
       Logger.error("Tried to start a trace over top of another trace.")
       {:error, :trace_running}
     else
@@ -60,7 +60,7 @@ defmodule Spandex do
   def start_span(name, opts) do
     strategy = opts[:strategy]
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(get_trace_key()) do
       {:error, :no_trace_context} = error ->
         error
 
@@ -89,7 +89,7 @@ defmodule Spandex do
   def update_span(opts, top?) do
     strategy = opts[:strategy]
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(get_trace_key()) do
       {:error, :no_trace_context} = error ->
         error
 
@@ -136,11 +136,11 @@ defmodule Spandex do
 
   def update_all_spans(opts) do
     strategy = opts[:strategy]
-
-    with {:ok, %Trace{stack: stack, spans: spans} = trace} <- strategy.get_trace(opts[:trace_key]),
+trace_key = get_trace_key()
+    with {:ok, %Trace{stack: stack, spans: spans} = trace} <- strategy.get_trace(trace_key),
          {:ok, new_spans} <- update_many_spans(spans, opts),
          {:ok, new_stack} <- update_many_spans(stack, opts) do
-      strategy.put_trace(opts[:trace_key], %{trace | stack: new_stack, spans: new_spans})
+      strategy.put_trace(trace_key, %{trace | stack: new_stack, spans: new_spans})
     end
   end
 
@@ -161,8 +161,9 @@ defmodule Spandex do
   def finish_trace(opts) do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
+    trace_key = get_trace_key()
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(trace_key) do
       {:error, :no_trace_context} = error ->
         Logger.error("Tried to finish a trace without an active trace.")
         error
@@ -176,7 +177,7 @@ defmodule Spandex do
         sender = opts[:sender] || adapter.default_sender()
         # TODO: We need to define a behaviour for the Sender API.
         sender.send_trace(%Trace{trace | spans: spans ++ unfinished_spans, stack: []})
-        strategy.delete_trace(opts[:trace_key])
+        strategy.delete_trace(trace_key)
 
       {:error, _} = error ->
         error
@@ -201,8 +202,9 @@ defmodule Spandex do
   def finish_span(opts) do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
+    trace_key = get_trace_key()
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(trace_key) do
       {:error, :no_trace_context} = error ->
         error
 
@@ -216,7 +218,7 @@ defmodule Spandex do
           |> update_or_keep(opts)
           |> ensure_completion_time_set(adapter)
 
-        strategy.put_trace(opts[:trace_key], %{
+        strategy.put_trace(trace_key, %{
           trace
           | stack: tail,
             spans: [finished_span | spans]
@@ -480,16 +482,17 @@ defmodule Spandex do
 
     with {:ok, span} <- Span.child_of(span, name, adapter.span_id(), adapter.now(), opts) do
       trace = %Trace{id: adapter.trace_id(), stack: [span], spans: [], trace_key: trace_key}
-      strategy.put_trace(opts[:trace_key], trace)
+      strategy.put_trace(trace_key, trace)
     end
   end
 
   defp do_start_span(name, %Trace{stack: [current_span | _]} = trace, opts) do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
+    trace_key = get_trace_key()
 
     with {:ok, span} <- Span.child_of(current_span, name, adapter.span_id(), adapter.now(), opts),
-         {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: [span | trace.stack]}) do
+         {:ok, _trace} <- strategy.put_trace(trace_key, %{trace | stack: [span | trace.stack]}) do
       Logger.metadata(span_id: span.id)
       {:ok, span}
     end
@@ -499,9 +502,10 @@ defmodule Spandex do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
     span_context = %SpanContext{trace_id: trace_id}
+    trace_key = get_trace_key()
 
     with {:ok, span} <- span(name, opts, span_context, adapter),
-         {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: [span]}) do
+         {:ok, _trace} <- strategy.put_trace(trace_key, %{trace | stack: [span]}) do
       Logger.metadata(span_id: span.id)
       {:ok, span}
     end
