@@ -256,7 +256,7 @@ defmodule Spandex do
   def current_trace_id(opts) do
     strategy = opts[:strategy]
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(get_trace_key()) do
       {:ok, %Trace{id: id}} ->
         id
 
@@ -289,7 +289,7 @@ defmodule Spandex do
   def current_span(opts) do
     strategy = opts[:strategy]
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(get_trace_key()) do
       {:ok, %Trace{stack: []}} ->
         nil
 
@@ -322,7 +322,7 @@ defmodule Spandex do
   def current_context(opts) do
     strategy = opts[:strategy]
 
-    case strategy.get_trace(opts[:trace_key]) do
+    case strategy.get_trace(get_trace_key()) do
       {:ok, %Trace{id: trace_id, priority: priority, baggage: baggage, stack: [%Span{id: span_id} | _]}} ->
         {:ok, %SpanContext{trace_id: trace_id, priority: priority, baggage: baggage, parent_id: span_id}}
 
