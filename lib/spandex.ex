@@ -178,8 +178,8 @@ defmodule Spandex do
         sender = opts[:sender] || adapter.default_sender()
         # TODO: We need to define a behaviour for the Sender API.
         sender.send_trace(%Trace{trace | spans: spans ++ unfinished_spans, stack: []})
-        strategy.delete_trace(trace_key)
         delete_trace_key()
+        strategy.delete_trace(trace_key)
 
       {:error, _} = error ->
         error
