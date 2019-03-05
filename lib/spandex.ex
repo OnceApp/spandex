@@ -349,8 +349,9 @@ defmodule Spandex do
 
   def continue_trace(name, %SpanContext{} = span_context, opts) do
     strategy = opts[:strategy]
+    trace_key = get_trace_key()
 
-    if strategy.trace_active?(opts[:trace_key]) do
+    if strategy.trace_active?(trace_key) do
       Logger.error("Tried to continue a trace over top of another trace.")
       {:error, :trace_already_present}
     else
@@ -391,8 +392,9 @@ defmodule Spandex do
 
   def continue_trace_from_span(name, span, opts) do
     strategy = opts[:strategy]
+    trace_key = get_trace_key()
 
-    if strategy.trace_active?(opts[:trace_key]) do
+    if strategy.trace_active?(trace_key) do
       Logger.error("Tried to continue a trace over top of another trace.")
       {:error, :trace_already_present}
     else
@@ -454,24 +456,30 @@ defmodule Spandex do
     adapter = opts[:adapter]
 
     with {:ok, top_span} <- span(name, opts, span_context, adapter) do
+      trace_key = strategy.generate_trace_key(opts[:trace_key])
+
       trace = %Trace{
         id: span_context.trace_id,
         priority: span_context.priority,
         baggage: span_context.baggage,
         stack: [top_span],
-        spans: []
+        spans: [],
+        trace_key: trace_key
       }
 
-      strategy.put_trace(opts[:trace_key], trace)
+      save_trace_key(trace_key)
+      strategy.put_trace(trace_key, trace)
     end
   end
 
   defp do_continue_trace_from_span(name, span, opts) do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
+    trace_key = strategy.generate_trace_key(opts[:trace_key])
+    save_trace_key(trace_key)
 
     with {:ok, span} <- Span.child_of(span, name, adapter.span_id(), adapter.now(), opts) do
-      trace = %Trace{id: adapter.trace_id(), stack: [span], spans: []}
+      trace = %Trace{id: adapter.trace_id(), stack: [span], spans: [], trace_key: trace_key}
       strategy.put_trace(opts[:trace_key], trace)
     end
   end
@@ -503,33 +511,35 @@ defmodule Spandex do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
     trace_id = adapter.trace_id()
+    trace_key = strategy.generate_trace_key(opts[:trace_key])
     span_context = %SpanContext{trace_id: trace_id}
+    save_trace_key(trace_key)
 
     with {:ok, span} <- span(name, opts, span_context, adapter) do
       Logger.metadata(trace_id: trace_id, span_id: span.id)
-      trace = %Trace{spans: [], stack: [span], id: trace_id}
-      strategy.put_trace(opts[:trace_key], trace)
+      trace = %Trace{spans: [], stack: [span], id: trace_id, trace_key: trace_key}
+      strategy.put_trace(trace_key, trace)
     end
   end
 
-  defp do_update_span(%Trace{stack: stack} = trace, opts, true) do
+  defp do_update_span(%Trace{stack: stack, trace_key: trace_key} = trace, opts, true) do
     strategy = opts[:strategy]
 
     top_span = Enum.at(stack, -1)
 
     with {:ok, updated} <- Span.update(top_span, opts),
          new_stack <- List.replace_at(stack, -1, updated),
-         {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: new_stack}) do
+         {:ok, _trace} <- strategy.put_trace(trace_key, %{trace | stack: new_stack}) do
       {:ok, updated}
     end
   end
 
-  defp do_update_span(%Trace{stack: [current_span | other_spans]} = trace, opts, false) do
+  defp do_update_span(%Trace{stack: [current_span | other_spans], trace_key: trace_key} = trace, opts, false) do
     strategy = opts[:strategy]
 
     with {:ok, updated} <- Span.update(current_span, opts),
          new_stack <- [updated | other_spans],
-         {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: new_stack}) do
+         {:ok, _trace} <- strategy.put_trace(trace_key, %{trace | stack: new_stack}) do
       {:ok, updated}
     end
   end
@@ -556,4 +566,7 @@ defmodule Spandex do
       {:ok, span} -> span
     end
   end
+
+  defp save_trace_key(trace_key), do: Process.put(:spandex_trace_key, trace_key)
+  defp get_trace_key, do: Process.get(:spandex_trace_key)
 end

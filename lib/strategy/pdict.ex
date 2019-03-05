@@ -33,4 +33,7 @@ defmodule Spandex.Strategy.Pdict do
   def delete_trace(trace_key) do
     {:ok, Process.delete({:spandex_trace, trace_key})}
   end
+
+  @impl Spandex.Strategy
+  def generate_trace_key(tracer), do: tracer
 end

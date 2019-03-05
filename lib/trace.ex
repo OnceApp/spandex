@@ -12,7 +12,8 @@ defmodule Spandex.Trace do
             id: nil,
             priority: 1,
             spans: [],
-            stack: []
+            stack: [],
+            trace_key: nil
 
   @typedoc @moduledoc
   @type t :: %__MODULE__{
@@ -20,6 +21,7 @@ defmodule Spandex.Trace do
           id: Spandex.id(),
           priority: integer(),
           spans: [Spandex.Span.t()],
-          stack: [Spandex.Span.t()]
+          stack: [Spandex.Span.t()],
+          trace_key: term()
         }
 end
