@@ -136,7 +136,8 @@ defmodule Spandex do
 
   def update_all_spans(opts) do
     strategy = opts[:strategy]
-trace_key = get_trace_key()
+    trace_key = get_trace_key()
+
     with {:ok, %Trace{stack: stack, spans: spans} = trace} <- strategy.get_trace(trace_key),
          {:ok, new_spans} <- update_many_spans(spans, opts),
          {:ok, new_stack} <- update_many_spans(stack, opts) do
@@ -178,6 +179,7 @@ trace_key = get_trace_key()
         # TODO: We need to define a behaviour for the Sender API.
         sender.send_trace(%Trace{trace | spans: spans ++ unfinished_spans, stack: []})
         strategy.delete_trace(trace_key)
+        delete_trace_key()
 
       {:error, _} = error ->
         error
@@ -573,4 +575,5 @@ trace_key = get_trace_key()
 
   defp save_trace_key(trace_key), do: Process.put(:spandex_trace_key, trace_key)
   defp get_trace_key, do: Process.get(:spandex_trace_key)
+  defp delete_trace_key, do: Process.delete(:spandex_trace_key)
 end
