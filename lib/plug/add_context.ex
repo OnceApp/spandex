@@ -85,21 +85,24 @@ defmodule Spandex.Plug.AddContext do
         |> add_query_params(conn.params, opts[:query_params])
         |> URI.decode_www_form()
 
-      user_agent =
-        conn
-        |> Plug.Conn.get_req_header("user-agent")
-        |> List.first()
+      headers =
+        conn.req_headers
+        |> Enum.filter(fn {key, _value} -> key != "authorization" and key != "host" end)
+        |> Enum.map(fn {key, value} -> {String.to_atom(key), value} end)
 
       opts =
         Keyword.merge(
           [
             resource: String.upcase(conn.method) <> " /" <> route,
-            http: [
-              method: conn.method,
-              url: conn.request_path,
-              query_string: conn.query_string,
-              user_agent: user_agent
-            ],
+            http:
+              Keyword.merge(
+                [
+                  method: conn.method,
+                  url: conn.request_path,
+                  query_string: conn.query_string
+                ],
+                headers
+              ),
             type: :web
           ],
           tracer_opts

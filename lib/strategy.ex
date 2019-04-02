@@ -10,5 +10,5 @@ defmodule Spandex.Strategy do
   @callback get_trace(tracer) :: {:ok, Trace.t()} | {:error, term}
   @callback put_trace(tracer, Trace.t()) :: {:ok, Trace.t()} | {:error, term}
   @callback trace_active?(tracer) :: boolean
-  @callback generate_trace_key(tracer) ::term()
+  @callback generate_trace_key(tracer) :: term()
 end

@@ -420,6 +420,7 @@ defmodule Spandex.Test.SpandexTest do
                  @fake_stacktrace,
                  @base_opts ++ [type: "not an atom"]
                )
+
       assert {:type, "must be of type :atom"} in validation_errors
     end
   end
